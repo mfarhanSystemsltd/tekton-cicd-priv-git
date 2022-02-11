@@ -1,0 +1,81 @@
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: ace
+  namespace: tekton-builds
+spec:
+  params:
+  - name: git-repo-name
+    default: mfarhanSystemsltd/ACE-HelloWorld
+  - name: docker-repo
+    default: mfarhan1998/ace-test
+  - name: release
+    default: "1.0.1"
+  - name: pathToContext
+    default: .
+  workspaces:
+    - name: pipeline-ws
+    - name: git-credential-ws
+  tasks:
+  - name: task-git-clone
+    taskRef:
+      name: git-clone
+    workspaces:
+    - name: source
+      workspace: pipeline-ws
+    - name: git-auth
+      workspace: git-credential-ws
+    params:
+    - name: url
+      value: https://github.com/$(params.git-repo-name).git
+  - name: build-container-image
+    taskRef:
+      name: build-kaniko-git
+    workspaces:
+    - name: source 
+      workspace: pipeline-ws
+    params:
+    - name: context
+      value: $(params.pathToContext)
+    # - name: app_repo
+    #   value: https://github.com/$(params.git-repo-name).git
+    - name: container_image
+      value: $(params.docker-repo)
+    - name: container_tag
+      value: "$(params.release)"  
+    runAfter:
+    - task-git-clone 
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-kaniko-git
+  namespace: tekton-builds
+spec:
+  params:
+  - name: context
+  - name: container_image
+  - name: container_tag
+  workspaces:
+  - name: source
+  volumes:
+  - name: kaniko-secret
+    secret:
+      secretName: kaniko-secret
+      items:
+      - key: .dockerconfigjson
+        path: config.json
+  steps:
+  - name: build
+    image: gcr.io/kaniko-project/executor:debug
+    args:
+    - --context=$(workspaces.source.path)
+    - --destination=$(params.container_image):$(params.container_tag)
+    volumeMounts:
+    - name: kaniko-secret
+      mountPath: /kaniko/.docker/
+
+---
