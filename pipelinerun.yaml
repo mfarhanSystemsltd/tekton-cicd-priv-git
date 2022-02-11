@@ -1,0 +1,21 @@
+
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: ace-run-
+  namespace: tekton-builds
+spec:
+  pipelineRef:
+    name: ace
+  workspaces:
+  - name: pipeline-ws
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 1Gi
+  - name: git-credential-ws
+    secret:
+      secretName: git-auth-token
